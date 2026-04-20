@@ -17,24 +17,47 @@ function Section({
   title,
   children,
   badge,
+  onReset,
+  resetConfirmMessage,
 }: {
   title: string;
   children: React.ReactNode;
   badge?: React.ReactNode;
+  onReset?: () => void;
+  resetConfirmMessage?: string;
 }) {
   const [open, setOpen] = useState(true);
+  const msg =
+    resetConfirmMessage ??
+    `Reset "${title}"? This cannot be undone.`;
+
   return (
     <section className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
-      <button
-        className="w-full flex items-center justify-between px-5 py-3 text-left"
-        onClick={() => setOpen((v) => !v)}
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-zinc-200">{title}</span>
-          {badge}
-        </div>
-        {open ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
-      </button>
+      <div className="flex w-full items-center gap-2 px-5 py-3">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center justify-between text-left"
+          onClick={() => setOpen((v) => !v)}
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="font-semibold text-zinc-200">{title}</span>
+            {badge}
+          </div>
+          {open ? <ChevronUp className="h-4 w-4 shrink-0 text-zinc-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" />}
+        </button>
+        {onReset && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (typeof window !== "undefined" && window.confirm(msg)) onReset();
+            }}
+            className="shrink-0 rounded-lg border border-zinc-600 px-2.5 py-1 text-xs text-zinc-400 hover:border-zinc-500 hover:text-zinc-200"
+          >
+            Reset
+          </button>
+        )}
+      </div>
       {open && <div className="px-5 pb-5">{children}</div>}
     </section>
   );
@@ -62,6 +85,7 @@ async function extractImage(imageId: string, file: File): Promise<ScriptBlock[]>
 export default function Home() {
   const {
     chapter, setChapter,
+    resetChapter, resetImages, resetScenes, resetAll,
     images, addImages, removeImage, reorderImages, setImageStatus,
     imageBlocks, setImageBlocks, updateBlock, deleteBlock, mergeBlocks, addBlock,
     dedupeState, runDedupe, undoDedupe,
@@ -70,6 +94,7 @@ export default function Home() {
   } = useExtractorStore();
 
   const [selectedImageId, setSelectedImageId] = useState<string | null>(null);
+  const [chapterFormKey, setChapterFormKey] = useState(0);
 
   const handleAddImages = useCallback(
     (items: ImageItem[]) => {
@@ -128,25 +153,52 @@ export default function Home() {
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="max-w-6xl mx-auto px-4 py-8 flex flex-col gap-6">
         {/* Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-white">Script Extractor</h1>
             <p className="text-sm text-zinc-400 mt-1">Extract dialogue & narration from game screenshots → canon Markdown</p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-500">
-            Model: <span className="text-zinc-300 font-mono">{process.env.NEXT_PUBLIC_VISION_MODEL ?? "gpt-4o-mini"}</span>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.confirm("Reset all content? This cannot be undone.")) {
+                  resetAll();
+                  setSelectedImageId(null);
+                  setChapterFormKey((k) => k + 1);
+                }
+              }}
+              className="rounded-lg border border-red-900/60 bg-red-950/40 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-950/70"
+            >
+              Reset all
+            </button>
+            <div className="text-xs text-zinc-500">
+              Model: <span className="font-mono text-zinc-300">{process.env.NEXT_PUBLIC_VISION_MODEL ?? "gpt-4o-mini"}</span>
+            </div>
           </div>
         </div>
 
         {/* 1. Chapter Metadata */}
-        <Section title="Chapter Metadata">
-          <ChapterMetaForm meta={chapter} onChange={setChapter} />
+        <Section
+          title="Chapter Metadata"
+          onReset={() => {
+            resetChapter();
+            setChapterFormKey((k) => k + 1);
+          }}
+          resetConfirmMessage='Reset "Chapter Metadata"? This cannot be undone.'
+        >
+          <ChapterMetaForm key={chapterFormKey} meta={chapter} onChange={setChapter} />
         </Section>
 
         {/* 2. Images & Extraction */}
         <Section
           title="Images & Extraction"
           badge={images.length > 0 && <Badge>{doneCount}/{images.length} extracted</Badge>}
+          onReset={() => {
+            resetImages();
+            setSelectedImageId(null);
+          }}
+          resetConfirmMessage='Reset "Images & Extraction"? This cannot be undone.'
         >
           <div className="flex flex-col gap-4">
             <ImageUploader onAddImages={handleAddImages} />
@@ -215,7 +267,6 @@ export default function Home() {
                       Reviewing: {selectedImage.file.name}
                     </p>
                     <ExtractionPanel
-                      imageId={selectedImage.id}
                       imageUrl={selectedImage.previewUrl}
                       blocks={selectedBlocks}
                       onUpdateBlock={(blockId, patch) => updateBlock(selectedImage.id, blockId, patch)}
@@ -236,6 +287,8 @@ export default function Home() {
         <Section
           title="Scene Composer"
           badge={scenes.length > 0 && <Badge>{scenes.length} scene{scenes.length !== 1 ? "s" : ""}</Badge>}
+          onReset={resetScenes}
+          resetConfirmMessage='Reset "Scene Composer"? This cannot be undone.'
         >
           <SceneComposer
             scenes={scenes}

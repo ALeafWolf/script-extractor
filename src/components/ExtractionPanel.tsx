@@ -1,21 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { Trash2, MergeIcon, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Trash2, MergeIcon, Plus, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { BlockType, ScriptBlock } from "@/lib/types";
 
 interface BlockRowProps {
   block: ScriptBlock;
-  imageId: string;
   onUpdate: (patch: Partial<ScriptBlock>) => void;
   onDelete: () => void;
   onMergeWithNext: () => void;
   onAddAfter: () => void;
   isLast: boolean;
+  sceneOptions: { id: string; title: string }[];
+  onAddToScene: (block: ScriptBlock, sceneId?: string) => void;
 }
 
-function BlockRow({ block, onUpdate, onDelete, onMergeWithNext, onAddAfter, isLast }: BlockRowProps) {
+function BlockRow({
+  block,
+  onUpdate,
+  onDelete,
+  onMergeWithNext,
+  onAddAfter,
+  isLast,
+  sceneOptions,
+  onAddToScene,
+}: BlockRowProps) {
+  const [selectedScene, setSelectedScene] = useState("");
+  const [addedToScene, setAddedToScene] = useState(false);
+
+  useEffect(() => {
+    setAddedToScene(false);
+  }, [selectedScene]);
+
   const typeColor = block.type === "dialogue" ? "bg-blue-900/40 border-blue-700" : "bg-amber-900/30 border-amber-700";
 
   return (
@@ -75,12 +92,44 @@ function BlockRow({ block, onUpdate, onDelete, onMergeWithNext, onAddAfter, isLa
         rows={2}
         className="w-full rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-200 border border-zinc-600 focus:outline-none resize-none"
       />
+
+      {sceneOptions.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={selectedScene}
+            onChange={(e) => setSelectedScene(e.target.value)}
+            className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 border border-zinc-700 focus:outline-none"
+          >
+            <option value="">Select scene…</option>
+            {sceneOptions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!selectedScene}
+            onClick={() => {
+              if (!selectedScene) return;
+              onAddToScene(block, selectedScene);
+              setAddedToScene(true);
+            }}
+            className={cn(
+              "text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition",
+              selectedScene && "cursor-pointer"
+            )}
+          >
+            → Add to scene
+          </button>
+          {addedToScene && <CheckCircle2 className="h-4 w-4 shrink-0 text-green-400" aria-hidden />}
+        </div>
+      )}
     </div>
   );
 }
 
 interface Props {
-  imageId: string;
   imageUrl: string;
   blocks: ScriptBlock[];
   onUpdateBlock: (blockId: string, patch: Partial<ScriptBlock>) => void;
@@ -92,7 +141,6 @@ interface Props {
 }
 
 export function ExtractionPanel({
-  imageId,
   imageUrl,
   blocks,
   onUpdateBlock,
@@ -103,7 +151,6 @@ export function ExtractionPanel({
   sceneOptions,
 }: Props) {
   const [imageExpanded, setImageExpanded] = useState(true);
-  const [selectedScene, setSelectedScene] = useState<string>("");
 
   return (
     <div className="flex gap-4 h-full">
@@ -123,9 +170,11 @@ export function ExtractionPanel({
       </div>
 
       {/* Right: blocks */}
-      <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
+      <div className="flex-1 flex flex-col gap-3 overflow-y-auto min-w-0">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-zinc-300">{blocks.length} block{blocks.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm font-medium text-zinc-300">
+            {blocks.length} block{blocks.length !== 1 ? "s" : ""}
+          </p>
           <button
             onClick={() => onAddBlock(null)}
             className="flex items-center gap-1 rounded-lg bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 transition"
@@ -135,44 +184,21 @@ export function ExtractionPanel({
         </div>
 
         {blocks.length === 0 && (
-          <p className="text-sm text-zinc-500 italic">No blocks extracted. Click "Add block" to add manually.</p>
+          <p className="text-sm text-zinc-500 italic">No blocks extracted. Click &quot;Add block&quot; to add manually.</p>
         )}
 
         {blocks.map((block, idx) => (
-          <div key={block.id} className="flex flex-col gap-1">
-            <BlockRow
-              block={block}
-              imageId={imageId}
-              onUpdate={(patch) => onUpdateBlock(block.id, patch)}
-              onDelete={() => onDeleteBlock(block.id)}
-              onMergeWithNext={() => onMergeBlock(block.id)}
-              onAddAfter={() => onAddBlock(block.id)}
-              isLast={idx === blocks.length - 1}
-            />
-
-            {/* Send to scene */}
-            {sceneOptions.length > 0 && (
-              <div className="flex items-center gap-2 pl-1">
-                <select
-                  value={selectedScene}
-                  onChange={(e) => setSelectedScene(e.target.value)}
-                  className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 border border-zinc-700 focus:outline-none"
-                >
-                  <option value="">Select scene…</option>
-                  {sceneOptions.map((s) => (
-                    <option key={s.id} value={s.id}>{s.title}</option>
-                  ))}
-                </select>
-                <button
-                  disabled={!selectedScene}
-                  onClick={() => onAddToScene(block, selectedScene || undefined)}
-                  className="text-xs text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                >
-                  → Add to scene
-                </button>
-              </div>
-            )}
-          </div>
+          <BlockRow
+            key={block.id}
+            block={block}
+            onUpdate={(patch) => onUpdateBlock(block.id, patch)}
+            onDelete={() => onDeleteBlock(block.id)}
+            onMergeWithNext={() => onMergeBlock(block.id)}
+            onAddAfter={() => onAddBlock(block.id)}
+            isLast={idx === blocks.length - 1}
+            sceneOptions={sceneOptions}
+            onAddToScene={onAddToScene}
+          />
         ))}
       </div>
     </div>

@@ -16,6 +16,10 @@ interface ExtractorState {
   // Chapter metadata
   chapter: ChapterMeta;
   setChapter: (meta: Partial<ChapterMeta>) => void;
+  resetChapter: () => void;
+  resetImages: () => void;
+  resetScenes: () => void;
+  resetAll: () => void;
 
   // Images
   images: ImageItem[];
@@ -77,6 +81,26 @@ export const useExtractorStore = create<ExtractorState>((set, get) => ({
   chapter: DEFAULT_CHAPTER,
   setChapter: (meta) =>
     set((s) => ({ chapter: { ...s.chapter, ...meta } })),
+
+  resetChapter: () => set({ chapter: { ...DEFAULT_CHAPTER } }),
+
+  resetImages: () =>
+    set({
+      images: [],
+      imageBlocks: {},
+      dedupeState: { applied: false, records: [], snapshot: null },
+    }),
+
+  resetScenes: () => set({ scenes: [] }),
+
+  resetAll: () =>
+    set({
+      chapter: { ...DEFAULT_CHAPTER },
+      images: [],
+      imageBlocks: {},
+      dedupeState: { applied: false, records: [], snapshot: null },
+      scenes: [],
+    }),
 
   images: [],
   addImages: (items) =>
