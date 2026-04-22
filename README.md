@@ -27,7 +27,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Usage
 
-1. **Chapter Metadata** — Fill in `character_id`, `chapter_label`, relationship arc, etc. This becomes the YAML front matter in the exported file.
+1. **Chapter Metadata** — Set `character_id`, continuity, arc (title drives `relationship_arc_key`), chapter and episode fields, `chapter_type`, and scope. This becomes the YAML front matter in the exported file.
 2. **Images & Extraction** — Drag and drop screenshots in order. Reorder thumbnails by dragging. Click "Extract all" to send each image to the vision model. After extraction, click a thumbnail to review and edit its blocks (type, speaker, text). Use "Run dedupe" to remove overlapping lines between adjacent screenshots (with undo support).
 3. **Scene Composer** — Add scenes and use "Add to scene" from each block to assign it. Drag scenes or blocks to reorder. Fill in `scene_title`, `location`, `time_hint`, etc.
 4. **Markdown Export** — Copy or download the assembled `.md` file, which matches the canon format used in `plot-sources/`.
@@ -63,9 +63,18 @@ Exported Markdown matches the canon format:
 ```markdown
 ---
 character_id: zou_ran
-source_type: personal_route
-relationship_arc: yi_mu
-...
+continuity_family: main_world
+relationship_arc_key: main_yimu
+relationship_arc_title: 旖慕篇
+arc_timeline_order: 2
+chapter_key: yimu_ch01
+chapter_name: 旖慕篇章1
+chapter_timeline_order: 1
+chapter_type: personal_story
+episode_label: 1-1
+episode_order: 1
+scope_membership:
+  - main_situationship
 ---
 
 ## Scene

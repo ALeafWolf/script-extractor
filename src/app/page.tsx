@@ -143,8 +143,8 @@ export default function Home() {
   }
 
   const markdown = buildMarkdown(chapter, scenes);
-  const chapterLabel = chapter.chapter_label || "untitled";
-  const filename = `${chapter.character_id || "script"}-${chapterLabel}.md`;
+  const fileStem = chapter.episode_label || chapter.chapter_key || "untitled";
+  const filename = `${chapter.character_id || "script"}-${fileStem}.md`;
 
   const pendingCount = images.filter((i) => i.status === "pending" || i.status === "error").length;
   const doneCount = images.filter((i) => i.status === "done").length;

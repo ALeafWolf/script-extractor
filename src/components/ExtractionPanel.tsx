@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Trash2, MergeIcon, Plus, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { BlockType, ScriptBlock } from "@/lib/types";
@@ -28,10 +28,6 @@ function BlockRow({
 }: BlockRowProps) {
   const [selectedScene, setSelectedScene] = useState("");
   const [addedToScene, setAddedToScene] = useState(false);
-
-  useEffect(() => {
-    setAddedToScene(false);
-  }, [selectedScene]);
 
   const typeColor = block.type === "dialogue" ? "bg-blue-900/40 border-blue-700" : "bg-amber-900/30 border-amber-700";
 
@@ -97,7 +93,10 @@ function BlockRow({
         <div className="flex items-center gap-2 flex-wrap">
           <select
             value={selectedScene}
-            onChange={(e) => setSelectedScene(e.target.value)}
+            onChange={(e) => {
+              setSelectedScene(e.target.value);
+              setAddedToScene(false);
+            }}
             className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400 border border-zinc-700 focus:outline-none"
           >
             <option value="">Select scene…</option>
@@ -155,7 +154,7 @@ export function ExtractionPanel({
   return (
     <div className="flex gap-4 h-full">
       {/* Left: original image */}
-      <div className="w-72 flex-shrink-0 flex flex-col gap-2">
+      <div className="w-72 shrink-0 flex flex-col gap-2">
         <button
           className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200 transition"
           onClick={() => setImageExpanded((v) => !v)}

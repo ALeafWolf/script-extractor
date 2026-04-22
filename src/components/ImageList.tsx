@@ -50,7 +50,7 @@ function SortableItem({ item, selected, onSelect, onRemove, onReExtract }: ItemP
       ref={setNodeRef}
       style={style}
       className={cn(
-        "relative flex-shrink-0 w-32 rounded-lg border-2 overflow-hidden cursor-pointer transition",
+        "relative shrink-0 w-32 rounded-lg border-2 overflow-hidden cursor-pointer transition",
         selected ? "border-blue-500" : "border-zinc-700 hover:border-zinc-500"
       )}
       onClick={onSelect}

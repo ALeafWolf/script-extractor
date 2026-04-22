@@ -54,15 +54,19 @@ interface ExtractorState {
 
 const DEFAULT_CHAPTER: ChapterMeta = {
   character_id: "zou_ran",
-  source_type: "personal_route",
-  relationship_arc: "",
-  relationship_arc_title: "",
-  chapter_label: "",
-  chapter_index_major: 1,
-  chapter_index_minor: 1,
   continuity_family: "main_world",
-  segment_type: "main_chapter",
+  relationship_arc_key: "main_weiming",
+  relationship_arc_title: "未名篇",
+  arc_timeline_order: 1,
+  chapter_key: "",
+  chapter_name: "",
+  chapter_timeline_order: 1,
+  chapter_type: "personal_story",
+  episode_label: "",
+  episode_order: 1,
   scope_membership: ["main_pre_relationship"],
+  au_world_key: "",
+  au_world_title: "",
 };
 
 function makeScene(order: number): Scene {

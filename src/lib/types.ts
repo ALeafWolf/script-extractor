@@ -32,17 +32,32 @@ export type Scene = {
   blocks: ScriptBlock[];
 };
 
+export type ContinuityFamily = "main_world" | "au";
+export type ChapterType = "main_story" | "personal_story" | "side_story";
+export type ScopeOption =
+  | "main_pre_relationship"
+  | "main_situationship"
+  | "main_relationship"
+  | "main_engaged"
+  | "main_married";
+
 export type ChapterMeta = {
   character_id: string;
-  source_type: string;
-  relationship_arc: string;
+  continuity_family: ContinuityFamily;
+  relationship_arc_key: string;
   relationship_arc_title: string;
-  chapter_label: string;
-  chapter_index_major: number;
-  chapter_index_minor: number;
-  continuity_family: string;
-  segment_type: string;
-  scope_membership: string[];
+  /** Main-world macro order; null for AU. */
+  arc_timeline_order: number | null;
+  chapter_key: string;
+  chapter_name: string;
+  chapter_timeline_order: number;
+  chapter_type: ChapterType;
+  episode_label: string;
+  episode_order: number;
+  scope_membership: [ScopeOption];
+  /** Filled for AU YAML export. */
+  au_world_key: string;
+  au_world_title: string;
 };
 
 export type DedupeRecord = {

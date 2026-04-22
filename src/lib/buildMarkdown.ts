@@ -24,18 +24,29 @@ function renderChapterFrontMatter(meta: ChapterMeta): string {
   const lines: string[] = [
     "---",
     `character_id: ${meta.character_id}`,
-    `source_type: ${meta.source_type}`,
-    `relationship_arc: ${meta.relationship_arc}`,
-    `relationship_arc_title: ${meta.relationship_arc_title}`,
-    `chapter_label: ${meta.chapter_label}`,
-    `chapter_index_major: ${meta.chapter_index_major}`,
-    `chapter_index_minor: ${meta.chapter_index_minor}`,
     `continuity_family: ${meta.continuity_family}`,
-    `segment_type: ${meta.segment_type}`,
-    `scope_membership:`,
-    ...meta.scope_membership.map((s) => `  - ${s}`),
-    "---",
+    `relationship_arc_key: ${meta.relationship_arc_key}`,
+    `relationship_arc_title: ${meta.relationship_arc_title}`,
   ];
+
+  if (meta.continuity_family === "main_world" && meta.arc_timeline_order !== null) {
+    lines.push(`arc_timeline_order: ${meta.arc_timeline_order}`);
+  }
+
+  lines.push(
+    `chapter_key: ${meta.chapter_key}`,
+    `chapter_name: ${meta.chapter_name}`,
+    `chapter_timeline_order: ${meta.chapter_timeline_order}`,
+    `chapter_type: ${meta.chapter_type}`,
+    `episode_label: ${meta.episode_label}`,
+    `episode_order: ${meta.episode_order}`,
+  );
+
+  if (meta.continuity_family === "au") {
+    lines.push(`au_world_key: ${meta.au_world_key}`, `au_world_title: ${meta.au_world_title}`);
+  }
+
+  lines.push("scope_membership:", ...meta.scope_membership.map((s) => `  - ${s}`), "---");
   return lines.join("\n");
 }
 

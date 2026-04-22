@@ -45,7 +45,7 @@ function BlockBadge({ block, onRemove }: BlockBadgeProps) {
       </div>
       <button
         onClick={onRemove}
-        className="flex-shrink-0 text-zinc-500 hover:text-red-400 transition"
+        className="shrink-0 text-zinc-500 hover:text-red-400 transition"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -151,7 +151,9 @@ function SortableScene({ scene, onUpdate, onRemove, onRemoveBlock, onReorderBloc
 
       {/* Blocks */}
       {scene.blocks.length === 0 ? (
-        <p className="text-xs text-zinc-600 italic pl-7">No blocks added yet. Use "Add to scene" from the extraction panel above.</p>
+        <p className="text-xs text-zinc-600 italic pl-7">
+          {`No blocks added yet. Use "Add to scene" from the extraction panel above.`}
+        </p>
       ) : (
         <DndContext sensors={blockSensors} collisionDetection={closestCenter} onDragEnd={handleBlockDragEnd}>
           <SortableContext items={scene.blocks.map((b) => b.id)} strategy={verticalListSortingStrategy}>
