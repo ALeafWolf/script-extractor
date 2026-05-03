@@ -1,29 +1,76 @@
-# Script Extractor
+# Zuo-Ran Tools
 
-A local Next.js tool that extracts structured dialogue and narration blocks from ordered game screenshots, lets you review and edit the results, and exports canon-format Markdown files.
+A local Next.js toolset with three features:
 
-## Setup
+- **Extractor (`/`)** — extract structured dialogue and narration blocks from ordered game screenshots, review/edit, and export canon-format Markdown files.
+- **Ingestor / Upload (`/ingestor/upload`)** — drag and drop `.md` plot-source files for a two-step Preview → Commit ingest into Postgres.
+- **Ingestor / Database (`/ingestor/database`)** — CRUD dashboard for scenes and line units, plus metadata editing for chapters and episodes.
+
+## Quick start (extractor only)
 
 ```bash
 cd scene-ingestor/script-extractor
 npm install
 cp .env.example .env.local
-```
-
-Edit `.env.local` and fill in your OpenAI API key:
-
-```bash
-OPENAI_API_KEY=sk-...
-VISION_MODEL=gpt-4o-mini
-```
-
-Then start the dev server:
-
-```bash
+# fill in OPENAI_API_KEY
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Database setup (ingestor features)
+
+### 1. Install pgvector
+
+pgvector is required. Install it for your Postgres distribution:
+
+- **macOS (Homebrew):** `brew install pgvector`
+- **Ubuntu/Debian:** `sudo apt install postgresql-16-pgvector` (adjust version)
+- **Windows (EDB installer):** use Stack Builder to install the pgvector extension
+- **Docker:** use `pgvector/pgvector:pg16` image
+
+### 2. Create the database
+
+```bash
+createdb zuoran
+```
+
+### 3. Configure the env
+
+Add to `.env.local`:
+
+```bash
+DATABASE_URL=postgres://user:pass@localhost:5432/zuoran
+```
+
+### 4. Run the migration
+
+```bash
+npm run db:migrate
+```
+
+This creates all six canon tables and enables the `vector` extension.
+
+The ingestor routes are now available. If `DATABASE_URL` is not set, both ingestor pages display a "Database is not configured" panel and all actions are disabled.
+
+### Embedding generation (optional)
+
+Embeddings are generated when `OPENAI_API_KEY` is set. If it's unset, ingest still succeeds and the `embedding` column stays `NULL`. You can populate embeddings later by re-ingesting with the key set (existing manually-edited units are protected).
+
+```bash
+# Optional — also controls which model and dimension to use
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSIONS=1536
+```
+
+> **Note:** `EMBEDDING_DIMENSIONS` must match the `vector(1536)` column size. If you need a different dimension, regenerate the migration with `npm run db:generate` after updating the schema.
+
+### Drizzle commands
+
+```bash
+npm run db:generate   # regenerate SQL migrations from schema.ts
+npm run db:migrate    # apply pending migrations to DATABASE_URL
+```
 
 ## Usage
 
