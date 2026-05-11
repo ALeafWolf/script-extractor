@@ -223,7 +223,7 @@ export default function UploadPage() {
             The connection works but the tables are missing. Run the migration:
           </p>
           <pre className="mt-2 rounded bg-red-950/60 px-3 py-2 font-mono text-xs text-red-200">
-            psql -d zuoran -f drizzle/migrations/0000_init.sql
+            psql -d zuoran-memory -f drizzle/migrations/0000_init.sql
           </pre>
           <p className="mt-1 text-red-400/80">
             Or: <code className="font-mono">npm run db:migrate</code> with{" "}

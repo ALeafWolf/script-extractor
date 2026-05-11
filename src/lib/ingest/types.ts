@@ -39,6 +39,7 @@ export interface ParsedChapterFrontmatter {
   scope_membership?: string[];
   episode_label?: string;
   episode_order?: number;
+  episode_title?: string;
   [key: string]: unknown;
 }
 
@@ -56,6 +57,28 @@ export interface ParsedCanonFile {
 // ---------------------------------------------------------------------------
 
 export type IngestMode = "replace" | "skip" | "replace-force";
+
+/** Passed to post-commit enrichment after a successful ingest transaction. */
+export interface PostCommitIngestPayload {
+  characterId: string;
+  chapterId: string;
+  episodeId: string;
+  chapterName: string;
+  episodeTitle: string | null;
+  scenes: Array<{
+    sceneId: string;
+    sceneTitle: string | null;
+    location: string | null;
+    timeHint: string | null;
+    units: Array<{
+      id: string;
+      contentType: string;
+      speaker: string | null;
+      text: string;
+      unitIndex: number;
+    }>;
+  }>;
+}
 
 export interface IngestConflict {
   existingEpisodeId?: string;
@@ -76,6 +99,8 @@ export interface IngestResult {
   embeddingsGenerated: number;
   conflicts: IngestConflict;
   warnings: string[];
+  summariesGenerated?: { scenes: number; episodes: number; chapters: number };
+  factsGenerated?: number;
   /** True when dryRun=true; no DB writes were performed. */
   dryRun?: boolean;
 }

@@ -94,30 +94,33 @@ export default function DatabasePage() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
-  const loadTree = useCallback(async () => {
+  const refreshTree = useCallback(
+    () =>
+      fetch("/api/ingestor/status")
+        .then((r) => r.json())
+        .then((status) => {
+          if (status.db !== "configured") {
+            setDbStatus(status.db as DbStatus);
+            return;
+          }
+          setDbStatus("configured");
+          return fetch("/api/ingestor/tree")
+            .then((r) => r.json())
+            .then((treeData) => setTree(treeData.tree ?? []));
+        })
+        .catch(() => setDbStatus("error"))
+        .finally(() => setLoading(false)),
+    [],
+  );
+
+  const loadTree = useCallback(() => {
     setLoading(true);
-    try {
-      const statusRes = await fetch("/api/ingestor/status");
-      const status = await statusRes.json();
-      if (status.db !== "configured") {
-        setDbStatus(status.db as DbStatus);
-        setLoading(false);
-        return;
-      }
-      setDbStatus("configured");
-      const treeRes = await fetch("/api/ingestor/tree");
-      const treeData = await treeRes.json();
-      setTree(treeData.tree ?? []);
-    } catch {
-      setDbStatus("error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return refreshTree();
+  }, [refreshTree]);
 
   useEffect(() => {
-    loadTree();
-  }, [loadTree]);
+    refreshTree();
+  }, [refreshTree]);
 
   const toggleExpand = (id: string) =>
     setExpandedIds((prev) => {
@@ -157,7 +160,7 @@ export default function DatabasePage() {
             The connection works but the tables are missing. Run the migration:
           </p>
           <pre className="mt-2 rounded bg-red-950/60 px-3 py-2 font-mono text-xs text-red-200">
-            psql -d zuoran -f drizzle/migrations/0000_init.sql
+            psql -d zuoran-memory -f drizzle/migrations/0000_init.sql
           </pre>
           <p className="mt-1 text-red-400/80">
             Or:{" "}
@@ -212,10 +215,12 @@ export default function DatabasePage() {
           </div>
         ) : (
           <DetailPanel
+            key={`${selection.kind}:${selection.id}`}
             selection={selection}
-            onSaved={loadTree}
+            onSaved={() => { setLoading(true); loadTree(); }}
             onDeleted={() => {
               setSelection(null);
+              setLoading(true);
               loadTree();
             }}
           />
@@ -490,14 +495,6 @@ function DetailPanel({
   onSaved: () => void;
   onDeleted: () => void;
 }) {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [units, setUnits] = useState<TreeUnit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<Record<string, unknown>>({});
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleteInfo, setDeleteInfo] = useState<string>("");
-
   const endpoint =
     selection.kind === "scene"
       ? `/api/ingestor/scenes/${selection.id}`
@@ -507,15 +504,16 @@ function DetailPanel({
           ? `/api/ingestor/episodes/${selection.id}`
           : null;
 
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [units, setUnits] = useState<TreeUnit[]>([]);
+  const [loading, setLoading] = useState(endpoint !== null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, unknown>>({});
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteInfo, setDeleteInfo] = useState<string>("");
+
   useEffect(() => {
-    setData(null);
-    setUnits([]);
-    setConfirmDelete(false);
-    if (!endpoint) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    if (!endpoint) return;
     fetch(endpoint)
       .then((r) => r.json())
       .then((json) => {
@@ -526,7 +524,7 @@ function DetailPanel({
         if (json.units) setUnits(json.units);
       })
       .finally(() => setLoading(false));
-  }, [endpoint, selection.id]);
+  }, [endpoint]);
 
   const save = async () => {
     if (!endpoint) return;
@@ -614,6 +612,18 @@ function DetailPanel({
             value={form.metadata as Record<string, unknown> | null}
             onChange={(v) => setForm((f) => ({ ...f, metadata: v }))}
           />
+          <AutoSummaryBlock
+            title="Chapter summary (auto)"
+            body={data?.summary as string | null | undefined}
+            model={data?.summaryModel as string | null | undefined}
+            generatedAt={data?.summaryGeneratedAt as string | null | undefined}
+            hasEmbedding={Boolean(
+              data?.summaryEmbedding != null &&
+                (Array.isArray(data.summaryEmbedding)
+                  ? data.summaryEmbedding.length > 0
+                  : true),
+            )}
+          />
         </div>
       )}
 
@@ -641,6 +651,18 @@ function DetailPanel({
             label="Metadata"
             value={form.metadata as Record<string, unknown> | null}
             onChange={(v) => setForm((f) => ({ ...f, metadata: v }))}
+          />
+          <AutoSummaryBlock
+            title="Episode summary (auto)"
+            body={data?.summary as string | null | undefined}
+            model={data?.summaryModel as string | null | undefined}
+            generatedAt={data?.summaryGeneratedAt as string | null | undefined}
+            hasEmbedding={Boolean(
+              data?.summaryEmbedding != null &&
+                (Array.isArray(data.summaryEmbedding)
+                  ? data.summaryEmbedding.length > 0
+                  : true),
+            )}
           />
         </div>
       )}
@@ -682,6 +704,18 @@ function DetailPanel({
               onChange={(v) => setForm((f) => ({ ...f, timeHint: v }))}
             />
           </div>
+          <AutoSummaryBlock
+            title="Scene summary (auto)"
+            body={data?.sceneSummary as string | null | undefined}
+            model={data?.summaryModel as string | null | undefined}
+            generatedAt={data?.summaryGeneratedAt as string | null | undefined}
+            hasEmbedding={Boolean(
+              data?.sceneSummaryEmbedding != null &&
+                (Array.isArray(data.sceneSummaryEmbedding)
+                  ? data.sceneSummaryEmbedding.length > 0
+                  : true),
+            )}
+          />
         </div>
       )}
 
@@ -770,18 +804,15 @@ function DetailPanel({
 // ---------------------------------------------------------------------------
 
 function UnitList({
-  units: initialUnits,
+  units,
   onChanged,
 }: {
   units: TreeUnit[];
   onChanged: () => void;
 }) {
-  const [units, setUnits] = useState(initialUnits);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<TreeUnit>>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-
-  useEffect(() => setUnits(initialUnits), [initialUnits]);
 
   const saveUnit = async (id: string) => {
     await fetch(`/api/ingestor/units/${id}`, {
@@ -943,6 +974,56 @@ function UnitList({
 // ---------------------------------------------------------------------------
 // Small form helpers
 // ---------------------------------------------------------------------------
+
+function AutoSummaryBlock({
+  title,
+  body,
+  model,
+  generatedAt,
+  hasEmbedding,
+}: {
+  title: string;
+  body: string | null | undefined;
+  model?: string | null | undefined;
+  generatedAt?: string | null | undefined;
+  hasEmbedding?: boolean;
+}) {
+  const text = (body ?? "").trim();
+  const when =
+    generatedAt &&
+    (() => {
+      try {
+        return new Date(generatedAt).toLocaleString();
+      } catch {
+        return String(generatedAt);
+      }
+    })();
+
+  return (
+    <div className="rounded-md border border-zinc-800 bg-zinc-900/50">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-zinc-800 px-3 py-2">
+        <span className="text-xs font-medium text-zinc-400">{title}</span>
+        <span className="text-[10px] text-zinc-600">
+          {model ? `model: ${model}` : "model: —"}
+          {when ? ` · ${when}` : ""}
+          {hasEmbedding ? " · embedding" : ""}
+        </span>
+      </div>
+      {text ? (
+        <p className="max-h-48 overflow-y-auto whitespace-pre-wrap px-3 py-2 text-sm leading-relaxed text-zinc-300">
+          {text}
+        </p>
+      ) : (
+        <p className="px-3 py-2 text-sm italic text-zinc-600">
+          No summary yet. Populated after ingest with{" "}
+          <code className="text-zinc-500">OPENAI_API_KEY</code> (unless{" "}
+          <code className="text-zinc-500">SKIP_AUTO_SUMMARY=1</code>), or run{" "}
+          <code className="text-zinc-500">npm run backfill:summaries</code>.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function Field({
   label,

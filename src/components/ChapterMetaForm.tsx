@@ -3,15 +3,15 @@
 import { useLayoutEffect } from "react";
 import type { ChapterMeta, ContinuityFamily, ChapterType, ScopeOption } from "@/lib/types";
 
-const MAIN_ARC_TITLES = ["未名篇", "旖慕篇", "甜蜜篇", "相守篇", "挚爱篇"] as const;
+const MAIN_ARC_TITLES = ["未名篇", "旖慕篇", "甜蜜篇", "挚爱篇", "相守篇"] as const;
 const AU_ARC_TITLES = ["异世篇"] as const;
 
 const ARC_PRESET: Record<string, { key: string; arc_timeline_order: number | null }> = {
   未名篇: { key: "main_weiming", arc_timeline_order: 1 },
   旖慕篇: { key: "main_yimu", arc_timeline_order: 2 },
   甜蜜篇: { key: "main_tianmi", arc_timeline_order: 3 },
-  相守篇: { key: "main_xiangshou", arc_timeline_order: 4 },
-  挚爱篇: { key: "main_zhiai", arc_timeline_order: 5 },
+  挚爱篇: { key: "main_zhiai", arc_timeline_order: 4 },
+  相守篇: { key: "main_xiangshou", arc_timeline_order: 5 },
   异世篇: { key: "au_yishi", arc_timeline_order: null },
 };
 

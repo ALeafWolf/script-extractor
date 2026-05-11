@@ -11,12 +11,14 @@ import {
   storyUnits,
 } from "@/db/schema";
 import { batchEmbed } from "./embedClient";
+import { postCommitEnrich } from "./postCommitEnrich";
 import type {
   ParsedCanonFile,
   ParsedScene,
   IngestResult,
   IngestOptions,
   IngestConflict,
+  PostCommitIngestPayload,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -200,6 +202,8 @@ export async function ingestCanon(
       embeddingsGenerated: 0,
       conflicts: conflict,
       warnings,
+      summariesGenerated: { scenes: 0, episodes: 0, chapters: 0 },
+      factsGenerated: 0,
       dryRun: true,
     };
   }
@@ -212,7 +216,10 @@ export async function ingestCanon(
   let embeddingsGenerated = 0;
   let conflict = buildConflict();
 
-  await db.transaction(async (tx) => {
+  const { enrichmentPayload } = await db.transaction(
+    async (tx): Promise<{ enrichmentPayload: PostCommitIngestPayload | null }> => {
+      let enrichmentPayload: PostCommitIngestPayload | null = null;
+
     // 1. Upsert relationship_arc
     const existingArc = await tx
       .select()
@@ -379,7 +386,7 @@ export async function ingestCanon(
       warnings.push(
         `Skipped episode "${episodeLabelFinal}": ${conflict.existingSceneCount} scene(s) already exist (mode=skip).`,
       );
-      return; // exit transaction with no scene/unit writes
+      return { enrichmentPayload }; // enrichmentPayload stays null — no inserts
     }
 
     // Determine which existing scenes to delete
@@ -426,6 +433,7 @@ export async function ingestCanon(
     // 6. Insert scenes and units
     const unitIdsForEmbedding: string[] = [];
     const unitTextsForEmbedding: string[] = [];
+    const stagedScenes: PostCommitIngestPayload["scenes"] = [];
 
     for (const scene of parsed.scenes) {
       const fm = scene.frontmatter;
@@ -447,7 +455,10 @@ export async function ingestCanon(
       scenesInserted++;
       const sceneId = insertedScene.id;
 
-      for (const unit of scene.units) {
+      const stagedUnits: PostCommitIngestPayload["scenes"][number]["units"] = [];
+
+      for (let ui = 0; ui < scene.units.length; ui++) {
+        const unit = scene.units[ui];
         const [insertedUnit] = await tx
           .insert(storyUnits)
           .values({
@@ -456,7 +467,7 @@ export async function ingestCanon(
             episodeId,
             sceneId,
             contentType: unit.contentType,
-            unitIndex: scene.units.indexOf(unit),
+            unitIndex: ui,
             speaker: unit.speaker ?? null,
             textContent: unit.text,
             metadata:
@@ -467,7 +478,33 @@ export async function ingestCanon(
         unitsInserted++;
         unitIdsForEmbedding.push(insertedUnit.id);
         unitTextsForEmbedding.push(unit.text);
+        stagedUnits.push({
+          id: insertedUnit.id,
+          contentType: unit.contentType,
+          speaker: unit.speaker ?? null,
+          text: unit.text,
+          unitIndex: ui,
+        });
       }
+
+      stagedScenes.push({
+        sceneId,
+        sceneTitle: (fm.scene_title as string) ?? null,
+        location: (fm.location as string) ?? null,
+        timeHint: (fm.time_hint as string) ?? null,
+        units: stagedUnits,
+      });
+    }
+
+    if (stagedScenes.length > 0) {
+      enrichmentPayload = {
+        characterId: character_id,
+        chapterId,
+        episodeId,
+        chapterName: chapter_name,
+        episodeTitle: (parsed.chapter.episode_title as string | undefined) ?? null,
+        scenes: stagedScenes,
+      };
     }
 
     // 7. Embeddings (optional, non-blocking)
@@ -491,7 +528,35 @@ export async function ingestCanon(
     } else if (!process.env.OPENAI_API_KEY) {
       warnings.push("Embeddings skipped: OPENAI_API_KEY is not set.");
     }
-  });
+
+    return { enrichmentPayload };
+    },
+  );
+
+  const emptyTier2 = {
+    summariesGenerated: { scenes: 0, episodes: 0, chapters: 0 },
+    factsGenerated: 0,
+  };
+  let summariesGenerated = emptyTier2.summariesGenerated;
+  let factsGenerated = emptyTier2.factsGenerated;
+
+  if (process.env.SKIP_AUTO_SUMMARY === "1") {
+    warnings.push("Auto summary/facts skipped: SKIP_AUTO_SUMMARY=1.");
+  } else if (enrichmentPayload && enrichmentPayload.scenes.length > 0) {
+    try {
+      const enriched = await postCommitEnrich(enrichmentPayload, {
+        warnings,
+        force: false,
+      });
+      summariesGenerated = enriched.summariesGenerated;
+      factsGenerated = enriched.factsGenerated;
+    } catch (err) {
+      console.error("[ingestCanon] post-commit enrichment failed:", err);
+      warnings.push(
+        "Post-commit summary/facts enrichment failed (see server logs); ingest data was saved.",
+      );
+    }
+  }
 
   return {
     file: parsed.filename,
@@ -505,6 +570,8 @@ export async function ingestCanon(
     embeddingsGenerated,
     conflicts: conflict,
     warnings,
+    summariesGenerated,
+    factsGenerated,
   };
 }
 

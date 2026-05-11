@@ -32,7 +32,7 @@ pgvector is required. Install it for your Postgres distribution:
 ### 2. Create the database
 
 ```bash
-createdb zuoran
+createdb zuoran-memory
 ```
 
 ### 3. Configure the env
@@ -40,7 +40,7 @@ createdb zuoran
 Add to `.env.local`:
 
 ```bash
-DATABASE_URL=postgres://user:pass@localhost:5432/zuoran
+DATABASE_URL=postgres://user:pass@localhost:5432/zuoran-memory
 ```
 
 ### 4. Run the migration
@@ -49,7 +49,7 @@ DATABASE_URL=postgres://user:pass@localhost:5432/zuoran
 npm run db:migrate
 ```
 
-This creates all six canon tables and enables the `vector` extension.
+This creates all canon tables (`story_facts` included after Tier 2 migrations), enables the `vector` extension, and applies any pending migration files such as `0001_tier2_canon_summaries_facts.sql`.
 
 The ingestor routes are now available. If `DATABASE_URL` is not set, both ingestor pages display a "Database is not configured" panel and all actions are disabled.
 
@@ -102,6 +102,25 @@ Restart `npm run dev` after changing env variables.
 | `VISION_MODEL` | `gpt-4o-mini` | Vision-capable model name |
 | `OPENAI_BASE_URL` | (OpenAI default) | Optional API base URL for proxies |
 | `VISION_MAX_IMAGE_WIDTH` | `1600` | Max pixel width before resizing |
+| `SUMMARY_MODEL` | `gpt-4o-mini` | Chat model for scene/episode/chapter summaries and fact extraction |
+| `SUMMARY_MAX_INPUT_CHARS_SCENE` | `24000` | Max characters from scene dialogue/narration in summarizer prompts |
+| `SUMMARY_TIMEOUT_MS` | `120000` | Timeout for summary/fact Chat Completions |
+| `SKIP_AUTO_SUMMARY` | _(unset)_ | Set to `1` to skip post-ingest summaries and facts (writes still persist) |
+
+### Canon summaries & facts (backfill CLI)
+
+Runs the same enrichment as post-ingest (`postCommitEnrich`), with optional scope and concurrency:
+
+```bash
+npm run backfill:summaries -- --scope=character:zhi_ai --limit=50
+npm run backfill:summaries -- --levels=facts --missing-only=false --force
+```
+
+Optional dashboard triggers:
+
+- `POST /api/ingestor/scenes/[id]/regenerate-summary` — JSON body `{ "force"?: boolean, "skipFacts"?: boolean }`
+- `POST /api/ingestor/episodes/[id]/regenerate-summary` — `{ "force"?: boolean }`
+- `POST /api/ingestor/chapters/[id]/regenerate-summary` — `{ "force"?: boolean }`
 
 ## Output Format
 
@@ -109,7 +128,7 @@ Exported Markdown matches the canon format:
 
 ```markdown
 ---
-character_id: zou_ran
+character_id: zuo_ran
 continuity_family: main_world
 relationship_arc_key: main_yimu
 relationship_arc_title: 旖慕篇

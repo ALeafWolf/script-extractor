@@ -53,7 +53,7 @@ interface ExtractorState {
 }
 
 const DEFAULT_CHAPTER: ChapterMeta = {
-  character_id: "zou_ran",
+  character_id: "zuo_ran",
   continuity_family: "main_world",
   relationship_arc_key: "main_weiming",
   relationship_arc_title: "未名篇",
