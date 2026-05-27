@@ -2,7 +2,7 @@
  * CLI: fill missing summary embeddings / rollups / structured facts.
  *
  * Examples (PowerShell):
- *   npm run backfill:summaries -- --scope=character:zhi_ai --limit=50
+ *   npm run backfill:summaries -- --scope=character:zuo_ran --limit=50
  *   npm run backfill:summaries -- --levels=facts --force
  *
  * Loads `.env.local` then `.env` from the script-extractor package root (same as Next.js).
