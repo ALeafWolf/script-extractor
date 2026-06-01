@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/", label: "Extractor" },
   { href: "/ingestor/upload", label: "Ingestor / Upload" },
   { href: "/ingestor/database", label: "Ingestor / Database" },
+  { href: "/ingestor/evidence", label: "Ingestor / Evidence" },
 ];
 
 export function HeaderNav() {

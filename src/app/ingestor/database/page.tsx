@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronRight,
   ChevronDown,
@@ -130,6 +130,22 @@ export default function DatabasePage() {
       return next;
     });
 
+  // Map chapter IDs to their parent arc's arcKey (for mining trigger)
+  const chapterArcMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const arc of tree) {
+      for (const ch of arc.chapters) {
+        map.set(ch.id, arc.arcKey);
+      }
+      for (const w of arc.auWorlds) {
+        for (const ch of w.chapters) {
+          map.set(ch.id, arc.arcKey);
+        }
+      }
+    }
+    return map;
+  }, [tree]);
+
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center text-zinc-500">
@@ -217,6 +233,7 @@ export default function DatabasePage() {
           <DetailPanel
             key={`${selection.kind}:${selection.id}`}
             selection={selection}
+            fetchedArcKey={selection.kind === "chapter" ? chapterArcMap.get(selection.id) ?? null : null}
             onSaved={() => { setLoading(true); loadTree(); }}
             onDeleted={() => {
               setSelection(null);
@@ -488,13 +505,18 @@ function TreeRow({
 
 function DetailPanel({
   selection,
+  fetchedArcKey,
   onSaved,
   onDeleted,
 }: {
   selection: Selection;
+  fetchedArcKey: string | null;
   onSaved: () => void;
   onDeleted: () => void;
 }) {
+  // Mining state (chapter only)
+  const [miningChapter, setMiningChapter] = useState(false);
+  const [mineChapterMsg, setMineChapterMsg] = useState<string | null>(null);
   const endpoint =
     selection.kind === "scene"
       ? `/api/ingestor/scenes/${selection.id}`
@@ -624,6 +646,78 @@ function DetailPanel({
                   : true),
             )}
           />
+
+          {/* Evidence stats + Mine this chapter */}
+          {fetchedArcKey && data && (
+            <div className="border-t border-zinc-800 pt-3">
+              <EvidenceCountBadge
+                characterId="zuo_ran"
+                chapterKey={data?.chapterKey as string | undefined}
+                arcKey={fetchedArcKey}
+              />
+
+              {mineChapterMsg && (
+                <div
+                  className={cn(
+                    "mb-2 rounded-md px-3 py-2 text-sm",
+                    mineChapterMsg.startsWith("✓")
+                      ? "bg-emerald-950/40 text-emerald-300"
+                      : mineChapterMsg.startsWith("✗")
+                        ? "bg-red-950/40 text-red-300"
+                        : "bg-zinc-800 text-zinc-400",
+                  )}
+                >
+                  {mineChapterMsg}
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  setMiningChapter(true);
+                  setMineChapterMsg(null);
+                  try {
+                    const chapterKey = data?.chapterKey as string | undefined;
+                    if (!chapterKey) {
+                      setMineChapterMsg("✗ No chapter key available.");
+                      return;
+                    }
+                    const res = await fetch("/api/ingestor/evidence/mine", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        characterId: "zuo_ran",
+                        arcKey: fetchedArcKey,
+                        chapterKeys: [chapterKey],
+                      }),
+                    });
+                    const json = await res.json();
+                    if (!res.ok) throw new Error(json.error ?? "Mine failed");
+                    if (!json.success) {
+                      throw new Error(json.error ?? "Miner finished with issues");
+                    }
+                    setMineChapterMsg(
+                      `✓ Mining complete: ${json.newRows} new proposed row(s). (model calls may have incurred API costs)`,
+                    );
+                    onSaved();
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : "Mine failed";
+                    setMineChapterMsg(`✗ ${msg}`);
+                  } finally {
+                    setMiningChapter(false);
+                  }
+                }}
+                disabled={miningChapter || !fetchedArcKey}
+                className="rounded-md bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {miningChapter ? (
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Mining…
+                  </span>
+                ) : (
+                  "Mine this chapter"
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1081,6 +1175,78 @@ function JsonField({
         )}
       />
       {error && <p className="mt-1 text-[10px] text-red-400">Invalid JSON</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Evidence count badge for chapter detail
+// ---------------------------------------------------------------------------
+
+function EvidenceCountBadge({
+  characterId,
+  chapterKey,
+  arcKey,
+}: {
+  characterId: string;
+  chapterKey: string | undefined;
+  arcKey: string;
+}) {
+  const [counts, setCounts] = useState<{
+    proposed: number;
+    active: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!chapterKey) return;
+    const key = chapterKey;
+    let cancelled = false;
+
+    async function fetchCounts() {
+      try {
+        const [proposedRes, activeRes] = await Promise.all([
+          fetch(
+            `/api/ingestor/evidence?character=${encodeURIComponent(characterId)}&chapter=${encodeURIComponent(key)}&status=proposed`,
+          ),
+          fetch(
+            `/api/ingestor/evidence?character=${encodeURIComponent(characterId)}&chapter=${encodeURIComponent(key)}&status=active`,
+          ),
+        ]);
+        if (cancelled) return;
+        const proposedJson = await proposedRes.json();
+        const activeJson = await activeRes.json();
+        if (!cancelled) {
+          setCounts({
+            proposed: proposedJson.count ?? 0,
+            active: activeJson.count ?? 0,
+          });
+        }
+      } catch {
+        if (!cancelled) setCounts(null);
+      }
+    }
+
+    fetchCounts();
+    return () => { cancelled = true; };
+  }, [characterId, chapterKey]);
+
+  if (!chapterKey || !counts) return null;
+
+  return (
+    <div className="mb-3 flex items-center gap-3 text-xs">
+      <span className="text-zinc-500">Evidence:</span>
+      <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-amber-300">
+        {counts.proposed} proposed
+      </span>
+      <span className="rounded bg-emerald-900/40 px-1.5 py-0.5 text-emerald-300">
+        {counts.active} active
+      </span>
+      <a
+        href={`/ingestor/evidence?character=${encodeURIComponent(characterId)}&arc=${encodeURIComponent(arcKey)}&chapter=${encodeURIComponent(chapterKey)}`}
+        className="ml-auto text-indigo-500 hover:text-indigo-400 underline underline-offset-2"
+      >
+        View in Evidence →
+      </a>
     </div>
   );
 }
