@@ -1,5 +1,7 @@
 # Zuo-Ran Tools
 
+[![Deploy script-extractor](https://github.com/ALeafWolf/script-extractor/actions/workflows/deploy.yml/badge.svg)](https://github.com/ALeafWolf/script-extractor/actions/workflows/deploy.yml)
+
 A local Next.js toolset with three features:
 
 - **Extractor (`/`)** — extract structured dialogue and narration blocks from ordered game screenshots, review/edit, and export canon-format Markdown files.

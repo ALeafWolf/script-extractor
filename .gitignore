@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Deployment runbook — contains infra recon (droplet IP, deploy user, hostnames); keep local
+docs/droplet-deployment.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

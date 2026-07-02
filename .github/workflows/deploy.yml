@@ -1,0 +1,38 @@
+name: Deploy script-extractor
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # allow manual runs from the Actions tab
+
+# Never let two deploys touch the box at once; a newer push cancels an in-flight one.
+concurrency:
+  group: deploy-zr-tools
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH in, pull, build, restart
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 20m # next build on the 2 GB box is memory-bound and slow
+          script: |
+            set -e                          # fail the job if ANY step errors
+            export NVM_DIR="$HOME/.nvm"
+            . "$NVM_DIR/nvm.sh"             # nvm is NOT auto-loaded over SSH
+            nvm use 20                      # Next 16 needs Node >=20.9 (box default is 16)
+            cd ~/projects/script-extractor
+            git fetch origin
+            git reset --hard origin/main    # exact match; .env.local, .next/, node_modules are gitignored
+            npm ci                          # lockfile is committed
+            npm run build                   # next build -> .next/ (server output)
+            pm2 restart zr-tools            # re-run `next start` on the fresh build
+            pm2 save
+            # NOTE: no db:migrate here. The canon schema lives in the shared Postgres and is
+            # owned by the chatbot backend's Drizzle migrations. Do NOT run this app's
+            # migrations against that DB (shared __drizzle_migrations ledger).
